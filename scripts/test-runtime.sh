@@ -16,7 +16,7 @@ if [[ "${actual_root,,}" != "${expected_root,,}" ]]; then
 fi
 for program in bash sh ssh sshpass scp sftp ssh-keygen ssh-agent ssh-add \
   ls cat cp mv rm mkdir ln chmod env dirname basename mktemp sed grep cygpath rg \
-  head tail sort find wc xargs uniq cut tr awk tar gzip; do
+  head tail sort find wc xargs uniq cut tr awk tar gzip sleep wget curl; do
   command -v "$program" > /dev/null || { echo "Missing runtime command: $program" >&2; exit 1; }
 done
 scratch=$(mktemp -d)
@@ -40,6 +40,10 @@ tar -xzf "$scratch/rows.tar.gz" -C "$scratch/extract"
 test "$(cat "$scratch/extract/rows")" = "$(cat "$scratch/rows")"
 ssh -V
 sshpass -V
+# Download tools are only checked for a working startup; no network access is assumed.
+wget --version > /dev/null
+curl --version > /dev/null
+sleep 0.01
 ssh -G -F /etc/ssh_config example.invalid > /dev/null
 ssh-keygen -q -t ed25519 -N '' -f "$scratch/key"
 ssh-keygen -lf "$scratch/key.pub"

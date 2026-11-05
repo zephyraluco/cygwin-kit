@@ -15,7 +15,7 @@ $installer = Join-Path $Cache 'setup-x86_64.exe'
 New-Item -ItemType Directory -Path $Cache -Force | Out-Null
 Invoke-WebRequest -Uri 'https://cygwin.com/setup-x86_64.exe' -OutFile $installer
 
-$pkgs = 'bash,cygwin,coreutils,findutils,gawk,tar,gzip,libssl3,openssh,sshpass'
+$pkgs = 'bash,cygwin,coreutils,findutils,gawk,tar,gzip,libssl3,openssh,sshpass,wget,curl'
 if ($AdditionalPackages) { $pkgs += ',' + $AdditionalPackages }
 # -B avoids elevation; the installation belongs to the current user.
 $setupArguments = @('-q', '-B', '-n', '-R', ('"{0}"' -f $Root), '-s', ('"{0}"' -f $Mirror), '-P', $pkgs, '-l', ('"{0}"' -f $Cache))
@@ -33,7 +33,7 @@ if (-not (Select-String -Path $fstab -Pattern '^none /cygdrive cygdrive binary,n
 }
 
 # Exercise the installed runtime and requested shell before packaging.
-& (Join-Path $Root 'bin\bash.exe') --login -c 'set -eu; report=$(cygcheck -c bash cygwin ncurses terminfo base-files tzdata libssl3 openssh sshpass); printf "%s\n" "$report"; for pkg in bash cygwin ncurses terminfo base-files tzdata libssl3 openssh sshpass; do printf "%s\n" "$report" | grep -Eq "^$pkg[[:space:]]+[^[:space:]]+[[:space:]]+OK$"; done; ssh -V; sshpass -V; test -f /usr/bin/cygssl-3.dll; test -f /usr/share/zoneinfo/UTC'
+& (Join-Path $Root 'bin\bash.exe') --login -c 'set -eu; report=$(cygcheck -c bash cygwin ncurses terminfo base-files tzdata libssl3 openssh sshpass wget curl); printf "%s\n" "$report"; for pkg in bash cygwin ncurses terminfo base-files tzdata libssl3 openssh sshpass wget curl; do printf "%s\n" "$report" | grep -Eq "^$pkg[[:space:]]+[^[:space:]]+[[:space:]]+OK$"; done; ssh -V; sshpass -V; wget --version > /dev/null; curl --version > /dev/null; test -f /usr/bin/cygssl-3.dll; test -f /usr/share/zoneinfo/UTC'
 if ($LASTEXITCODE -ne 0) {
     throw "Cygwin runtime validation failed with exit code $LASTEXITCODE"
 }

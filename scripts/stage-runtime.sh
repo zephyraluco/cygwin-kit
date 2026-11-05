@@ -45,7 +45,7 @@ copy_program() {
 }
 for program in bash ssh sshpass scp sftp ssh-keygen ssh-agent ssh-add \
   ls cat cp mv rm mkdir ln chmod env dirname basename mktemp sed grep cygpath \
-  head tail sort find wc xargs uniq cut tr gawk tar gzip \
+  head tail sort find wc xargs uniq cut tr gawk tar gzip sleep wget curl \
   cygwin-console-helper; do
   copy_program "bin/$program.exe"
 done

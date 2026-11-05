@@ -10,7 +10,7 @@
 `C:\cygwin`，然后检查 Bash、OpenSSH、sshpass、OpenSSL 运行库和时区文件。可用 `-Root`
 指定安装目录，`-Mirror` 指定镜像，`-Cache` 指定下载缓存目录。
 
-请求的软件包为 `bash,cygwin,coreutils,findutils,gawk,tar,gzip,libssl3,openssh,sshpass`。
+请求的软件包为 `bash,cygwin,coreutils,findutils,gawk,tar,gzip,libssl3,openssh,sshpass,wget,curl`。
 Cygwin 安装器还会安装默认基础包和必要依赖，因此实际安装内容不只包含上述包。
 这是构建和打包的安装源，发布包会另外按白名单生成，不直接归档整个安装目录。
 
@@ -23,12 +23,17 @@ Package 仅在推送 tag 时触发，在自己的 runner 上重新构建，再�
 `scripts/stage-runtime.sh` 从空目录生成精简发布树，只保留选定程序和递归 DLL 依赖。
 保留 Bash/sh、SSH 客户端及 keygen/agent/add、scp/sftp、sshpass、ripgrep，
 以及 ls/cat/cp/mv/rm/mkdir/ln/chmod/env/dirname/basename/mktemp/sed/grep/cygpath，
-另保留 head/tail/sort/find/wc/xargs/uniq/cut/tr/awk/tar；awk 使用 GNU awk，
+另保留 head/tail/sort/find/wc/xargs/uniq/cut/tr/awk/tar/sleep/wget/curl；awk 使用 GNU awk，
 tar 配套保留 gzip，支持 `.tar.gz` 的创建和解压。
+wget 和 curl 为 Cygwin HTTPS/HTTP 下载工具，其 libcurl、libssl、zlib 等依赖由 staging 阶段
+按 PE 导入递归收集。
 保留 SSH helper 和 xterm、xterm-256color、cygwin、dumb 四种终端定义。
 不包含编辑器、mintty、SSH 服务端、文件类型数据库、排版工具、文档、翻译、
 安装器状态或用户目录。**时区文件和所有随包证书数据均不包含在成品中**，
 包括 `zoneinfo`、`localtime`、`etc/ssl`、`etc/pki` 和 `usr/share/pki`。
+因此 wget/curl 在 HTTPS 下需要自备 CA 证书：`curl --cacert <文件>`、
+`wget --ca-certificate=<文件>`，或自行在 `/etc/ssl/certs` 放置证书包；
+纯 HTTP 请求不受影响。
 最小启动配置使用 UTF-8，默认 `TZ=UTC0`；SSH 仍使用用户自己的 known_hosts 和密钥。
 源安装目录保持完整，归档工具从源环境调用，不必放进发布包。
 
@@ -80,4 +85,21 @@ read -rsp 'SSH 密码: ' SSHPASS; echo
 export SSHPASS
 sshpass -e ssh 用户名@远程主机
 unset SSHPASS
+```
+
+## 下载工具
+
+发布包包含 `curl`、`wget` 和 `sleep`，可在 Cygwin Bash 中使用：
+
+```bash
+curl -fsSL http://example.com/file -o file
+wget -q -O file http://example.com/file
+sleep 2
+```
+
+由于包内不含证书数据，HTTPS 请求需要显式指定 CA 文件：
+
+```bash
+curl --cacert /path/to/ca-bundle.crt -fsSL https://example.com
+wget --ca-certificate=/path/to/ca-bundle.crt -O file https://example.com/file
 ```

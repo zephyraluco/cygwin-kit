@@ -22,7 +22,7 @@ with tempfile.TemporaryDirectory(prefix="test-cygwin-stage-") as directory:
     assert hashlib.sha256(original_rg.read_bytes()).digest() == before
     assert (stage / "bin/sh.exe").samefile(stage / "bin/bash.exe")
     assert (stage / "bin/awk.exe").samefile(stage / "bin/gawk.exe")
-    for command in "head tail sort find wc xargs uniq cut tr awk tar gzip".split():
+    for command in "head tail sort find wc xargs uniq cut tr awk tar gzip sleep wget curl".split():
         assert (stage / "bin" / (command + ".exe")).is_file(), command
     assert (stage / "usr/local/bin/rg.exe").stat().st_size <= original_rg.stat().st_size
     sections = subprocess.check_output(["objdump", "-h", str(stage / "usr/local/bin/rg.exe")], text=True)
