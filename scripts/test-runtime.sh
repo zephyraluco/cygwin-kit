@@ -15,8 +15,8 @@ if [[ "${actual_root,,}" != "${expected_root,,}" ]]; then
   exit 1
 fi
 for program in bash sh ssh sshpass scp sftp ssh-keygen ssh-agent ssh-add \
-  ls cat cp mv rm mkdir ln chmod env dirname basename mktemp sed grep cygpath rg \
-  head tail sort find wc xargs uniq cut tr awk tar gzip sleep wget curl; do
+  ls cat cp mv rm mkdir ln chmod env dirname basename mktemp sed grep cygpath rg fd \
+  head tail sort find wc xargs uniq cut tr awk tar gzip sleep curl; do
   command -v "$program" > /dev/null || { echo "Missing runtime command: $program" >&2; exit 1; }
 done
 scratch=$(mktemp -d)
@@ -41,8 +41,13 @@ test "$(cat "$scratch/extract/rows")" = "$(cat "$scratch/rows")"
 ssh -V
 sshpass -V
 # Download tools are only checked for a working startup; no network access is assumed.
-wget --version > /dev/null
 curl --version > /dev/null
+# Exercise fd in the isolated staged runtime, including Cygwin paths and execution.
+fd --version
+mkdir "$scratch/fd"
+printf 'fd-ok\n' > "$scratch/fd/needle.txt"
+test "$(fd --color never --absolute-path '^needle[.]txt$' "$scratch/fd")" = "$scratch/fd/needle.txt"
+test "$(fd --color never '^needle[.]txt$' "$scratch/fd" -x cat '{}')" = fd-ok
 sleep 0.01
 ssh -G -F /etc/ssh_config example.invalid > /dev/null
 ssh-keygen -q -t ed25519 -N '' -f "$scratch/key"

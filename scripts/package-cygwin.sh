@@ -37,39 +37,53 @@ runtime=$(cygpath -au "$2")
 install -d "$runtime/usr/local/bin"
 
 # Add commands here; no compiler is invoked during packaging.
-rg_source="$work/ripgrep"
-rg_binary="$rg_source/target/x86_64-pc-cygwin/release/rg.exe"
-objdump -p "$rg_binary" | grep -i 'DLL Name: cygwin1[.]dll' > /dev/null
-objdump -p "$rg_binary" | grep -E '[[:space:]]_dll_crt0[[:space:]]*$' > /dev/null
-install -d "$runtime/opt/ripgrep/share"
-install -m 755 "$rg_binary" "$runtime/usr/local/bin/rg.exe"
-for license in COPYING LICENSE-MIT UNLICENSE Cargo.lock; do
-  install -m 644 "$rg_source/$license" "$runtime/opt/ripgrep/share/$license"
-done
-printf '%s\n' 'ripgrep 15.1.0' 'BurntSushi/ripgrep af60c2de9d85e7f3d81c78601669468cf02dabab' > "$runtime/opt/ripgrep/share/version.txt"
-if dependencies=$(cygcheck "$rg_binary" 2>&1 | tr -d '\r'); then
-  printf '%s\n' "$dependencies"
-else
-  status=$?
-  printf 'cygcheck failed (exit %s):\n%s\n' "$status" "$dependencies" >&2
-  exit "$status"
-fi
-if [[ "$dependencies" == *'not found'* ]]; then
-  echo 'Cannot package unresolved ripgrep dependencies' >&2
-  exit 1
-fi
-while IFS= read -r dll; do
-  dll=${dll#"${dll%%[![:space:]]*}"}
-  [[ "$dll" == *.dll ]] || continue
-  dll=$(cygpath -u "$dll")
-  name=$(basename "$dll")
-  [[ -f "/usr/bin/$name" ]] || continue
-  if [[ -f "$runtime/bin/$name" ]]; then
-    check_runtime_dll "$dll" "$runtime/bin/$name"
+for project in ripgrep fd; do
+  source="$work/$project"
+  if [[ $project == ripgrep ]]; then
+    binary=rg
+    version='ripgrep 15.2.0'
+    revision='BurntSushi/ripgrep e89fff89ac9af12e8d4ce9d5fd07beb408ca730f'
+    licenses=(COPYING LICENSE-MIT UNLICENSE Cargo.lock)
   else
-    install -m 755 "$dll" "$runtime/bin/$name"
+    binary=fd
+    version='fd-find 10.5.1'
+    revision='sharkdp/fd 193d0df1d0ad455e44506953a2cd80428203ff35'
+    licenses=(LICENSE-MIT LICENSE-APACHE Cargo.lock)
   fi
-done <<< "$dependencies"
+  executable="$source/target/x86_64-pc-cygwin/release/$binary.exe"
+  objdump -p "$executable" | grep -i 'DLL Name: cygwin1[.]dll' > /dev/null
+  objdump -p "$executable" | grep -E '[[:space:]]_dll_crt0[[:space:]]*$' > /dev/null
+  install -d "$runtime/opt/$project/share"
+  install -m 755 "$executable" "$runtime/usr/local/bin/$binary.exe"
+  for license in "${licenses[@]}"; do
+    install -m 644 "$source/$license" "$runtime/opt/$project/share/$license"
+  done
+  printf '%s\n' "$version" "$revision" > "$runtime/opt/$project/share/version.txt"
+  if dependencies=$(cygcheck "$executable" 2>&1 | tr -d '\r'); then
+    printf '%s\n' "$dependencies"
+  else
+    status=$?
+    printf 'cygcheck failed (exit %s):\n%s\n' "$status" "$dependencies" >&2
+    exit "$status"
+  fi
+  if [[ "$dependencies" == *'not found'* ]]; then
+    echo 'Cannot package unresolved command dependencies' >&2
+    exit 1
+  fi
+  while IFS= read -r dll; do
+    dll=${dll#"${dll%%[![:space:]]*}"}
+    [[ "$dll" == *.dll ]] || continue
+    dll=$(cygpath -u "$dll")
+    name=$(basename "$dll")
+    [[ -f "/usr/bin/$name" ]] || continue
+    if [[ -f "$runtime/bin/$name" ]]; then
+      check_runtime_dll "$dll" "$runtime/bin/$name"
+    else
+      install -m 755 "$dll" "$runtime/bin/$name"
+    fi
+  done <<< "$dependencies"
+
+done
 
 # Cleanup and archiving run from PowerShell, outside this compiler Cygwin process.
 # Do not execute ripgrep; ABI validation happens during the build.

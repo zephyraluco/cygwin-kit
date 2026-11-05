@@ -25,7 +25,7 @@ if ($LASTEXITCODE) { throw 'Staging cygpath failed' }
 Run "$BuildRoot/bin/bash.exe" @('--login', $stagingScript, $Runtime, $StageRoot)
 
 # Start the staged runtime from PowerShell, never from another Cygwin process.
-Write-Host 'Validating minimal runtime (ripgrep ABI only)'
+Write-Host 'Validating minimal runtime (ripgrep ABI only; fd search and execution)'
 $testScript = & "$BuildRoot/bin/cygpath.exe" -u "$PSScriptRoot/test-runtime.sh"
 if ($LASTEXITCODE) { throw 'Test script cygpath failed' }
 Run "$StageRoot/bin/bash.exe" @('--login', $testScript, $StageRoot)

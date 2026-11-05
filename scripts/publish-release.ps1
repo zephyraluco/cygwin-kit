@@ -8,7 +8,7 @@ $hash = (Get-FileHash $Archive -Algorithm SHA256).Hash.ToLowerInvariant()
 "$hash  $([IO.Path]::GetFileName($Archive))" | Set-Content $checksum -Encoding ascii
 $notes = Join-Path (Split-Path $Archive) 'release-notes.md'
 @'
-Cygwin environment with ripgrep 15.1.0, OpenSSH, sshpass, wget and curl.
+Cygwin environment with ripgrep 15.2.0, OpenSSH, sshpass, fd-find 10.5.1 and curl.
 
 Download cygwin-x86_64.tar.gz and its SHA-256 checksum. Extract on Windows.
 ripgrep is checked for the Cygwin ABI only; its runtime behavior is not tested.

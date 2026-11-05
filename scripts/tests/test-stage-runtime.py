@@ -13,25 +13,29 @@ import tempfile
 
 script = Path(__file__).resolve().parents[1] / "stage-runtime.sh"
 source = Path(sys.argv[1]).resolve()
-original_rg = source / "usr/local/bin/rg.exe"
-before = hashlib.sha256(original_rg.read_bytes()).digest()
+originals = {command: source / f"usr/local/bin/{command}.exe" for command in ("rg", "fd")}
+before = {command: hashlib.sha256(path.read_bytes()).digest() for command, path in originals.items()}
 with tempfile.TemporaryDirectory(prefix="test-cygwin-stage-") as directory:
     work = Path(directory)
     stage = work / "cygwin"
     subprocess.run(["bash", str(script), str(source), str(stage)], check=True)
-    assert hashlib.sha256(original_rg.read_bytes()).digest() == before
     assert (stage / "bin/sh.exe").samefile(stage / "bin/bash.exe")
     assert (stage / "bin/awk.exe").samefile(stage / "bin/gawk.exe")
-    for command in "head tail sort find wc xargs uniq cut tr awk tar gzip sleep wget curl".split():
+    for command in "head tail sort find wc xargs uniq cut tr awk tar gzip sleep curl".split():
         assert (stage / "bin" / (command + ".exe")).is_file(), command
-    assert (stage / "usr/local/bin/rg.exe").stat().st_size <= original_rg.stat().st_size
-    sections = subprocess.check_output(["objdump", "-h", str(stage / "usr/local/bin/rg.exe")], text=True)
-    assert ".debug" not in sections
-    before_imports = subprocess.check_output(["objdump", "-p", str(original_rg)], text=True)
-    after_imports = subprocess.check_output(["objdump", "-p", str(stage / "usr/local/bin/rg.exe")], text=True)
-    assert re.findall(r"DLL Name:\s+(\S+)", before_imports) == re.findall(r"DLL Name:\s+(\S+)", after_imports)
-    assert "_dll_crt0" in after_imports
-    for relative in ("etc/ssl", "etc/pki", "etc/localtime", "etc/timezone",
+    for command, original in originals.items():
+        executable = stage / f"usr/local/bin/{command}.exe"
+        assert hashlib.sha256(original.read_bytes()).digest() == before[command]
+        assert executable.stat().st_size <= original.stat().st_size
+        sections = subprocess.check_output(["objdump", "-h", str(executable)], text=True)
+        assert ".debug" not in sections
+        before_imports = subprocess.check_output(["objdump", "-p", str(original)], text=True)
+        after_imports = subprocess.check_output(["objdump", "-p", str(executable)], text=True)
+        assert re.findall(r"DLL Name:\s+(\S+)", before_imports) == re.findall(r"DLL Name:\s+(\S+)", after_imports)
+        assert "_dll_crt0" in after_imports
+    for metadata in ("LICENSE-MIT", "LICENSE-APACHE", "Cargo.lock", "version.txt"):
+        assert (stage / "opt/fd/share" / metadata).read_bytes() == (source / "opt/fd/share" / metadata).read_bytes()
+    for relative in ("bin/wget.exe", "etc/ssl", "etc/pki", "etc/localtime", "etc/timezone",
                      "usr/share/zoneinfo", "usr/share/pki", "usr/share/ca-certificates",
                      "var/lib/ca-certificates", "etc/setup", "usr/share/misc",
                      "usr/share/groff", "usr/share/mintty", "bin/vi.exe",

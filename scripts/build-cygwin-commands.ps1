@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('ripgrep')][string]$Command = 'ripgrep',
+    [ValidateSet('ripgrep', 'fd')][string]$Command = 'ripgrep',
     [Parameter(Mandatory)][string]$Source,
     [string]$BuildRoot = 'C:\cygwin-build'
 )
@@ -10,10 +10,19 @@ if (-not $IsWindows) { throw 'Requires Windows PowerShell 7 and Cygwin GCC.' }
 switch ($Command) {
     'ripgrep' {
         $repository = 'BurntSushi/ripgrep'
-        $commit = 'af60c2de9d85e7f3d81c78601669468cf02dabab'
+        $tag = '15.2.0'
+        $commit = 'e89fff89ac9af12e8d4ce9d5fd07beb408ca730f'
         $binary = 'rg'
     }
+    'fd' {
+        $repository = 'sharkdp/fd'
+        $tag = 'v10.5.1'
+        $commit = '193d0df1d0ad455e44506953a2cd80428203ff35'
+        $binary = 'fd'
+    }
 }
+# Use the system allocator and omit completion generation for the minimal runtime.
+if ($Command -eq 'fd') { $buildFeatures = @('--no-default-features') } else { $buildFeatures = @() }
 $toolchain = 'nightly-2025-11-01'
 $target = 'x86_64-pc-cygwin'
 function Run([string]$Program, [string[]]$Arguments) {
@@ -24,7 +33,9 @@ $existing = Test-Path $Source
 if (-not $existing) { Run git @('clone', '--config', 'core.autocrlf=false', '--no-checkout', "https://github.com/$repository.git", $Source) }
 $Source = (Resolve-Path $Source).Path
 if ($existing) { Run git @('-C', $Source, 'diff', '--exit-code', 'HEAD', '--') }
-Run git @('-C', $Source, 'fetch', '--depth=1', 'origin', $commit)
+Run git @('-C', $Source, 'fetch', '--depth=1', 'origin', "refs/tags/${tag}")
+$resolved = & git -C $Source rev-parse 'FETCH_HEAD^{commit}'
+if ($LASTEXITCODE -ne 0 -or $resolved -ne $commit) { throw "Unexpected commit for $repository tag $tag" }
 Run git @('-C', $Source, 'checkout', '--detach', $commit)
 Run rustup @('toolchain', 'install', $toolchain, '--profile', 'minimal', '--component', 'rust-src')
 $settings = @{
@@ -43,7 +54,7 @@ foreach ($name in $settings.Keys) {
 }
 Push-Location $Source
 try {
-    Run cargo @("+$toolchain", 'build', '--locked', '--release', '--target', $target, '-Zbuild-std=std,panic_abort', '--bin', $binary)
+    Run cargo (@("+$toolchain", 'build', '--locked', '--release', '--target', $target, '-Zbuild-std=std,panic_abort', '--bin', $binary) + $buildFeatures)
     $exe = "$Source\target\$target\release\$binary.exe"
     Run "$BuildRoot\bin\strip.exe" @('--strip-debug', $exe)
     $headers = & "$BuildRoot\bin\objdump.exe" -p $exe

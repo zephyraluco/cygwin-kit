@@ -45,20 +45,22 @@ copy_program() {
 }
 for program in bash ssh sshpass scp sftp ssh-keygen ssh-agent ssh-add \
   ls cat cp mv rm mkdir ln chmod env dirname basename mktemp sed grep cygpath \
-  head tail sort find wc xargs uniq cut tr gawk tar gzip sleep wget curl \
+  head tail sort find wc xargs uniq cut tr gawk tar gzip sleep curl \
   cygwin-console-helper; do
   copy_program "bin/$program.exe"
 done
 ln "$stage/bin/bash.exe" "$stage/bin/sh.exe"
 # Cygwin normally installs awk as a symlink to GNU awk. Ship portable EXE aliases.
 ln "$stage/bin/gawk.exe" "$stage/bin/awk.exe"
-copy_program usr/local/bin/rg.exe
-strip --strip-debug "$stage/usr/local/bin/rg.exe"
-rg_headers=$(objdump -p "$stage/usr/local/bin/rg.exe")
-grep -E 'Magic[[:space:]]+020b' <<< "$rg_headers" > /dev/null
-grep -i 'DLL Name: cygwin1[.]dll' <<< "$rg_headers" > /dev/null
-grep -E '[[:space:]]_dll_crt0[[:space:]]*$' <<< "$rg_headers" > /dev/null
-objdump -f "$stage/usr/local/bin/rg.exe" | grep 'architecture: i386:x86-64' > /dev/null
+for command in rg fd; do
+  copy_program "usr/local/bin/$command.exe"
+  strip --strip-debug "$stage/usr/local/bin/$command.exe"
+  headers=$(objdump -p "$stage/usr/local/bin/$command.exe")
+  grep -E 'Magic[[:space:]]+020b' <<< "$headers" > /dev/null
+  grep -i 'DLL Name: cygwin1[.]dll' <<< "$headers" > /dev/null
+  grep -E '[[:space:]]_dll_crt0[[:space:]]*$' <<< "$headers" > /dev/null
+  objdump -f "$stage/usr/local/bin/$command.exe" | grep 'architecture: i386:x86-64' > /dev/null
+done
 for helper in ssh-keysign ssh-pkcs11-helper ssh-sk-helper; do
   copy_program "usr/sbin/$helper.exe"
 done
@@ -105,9 +107,16 @@ for terminal in xterm xterm-256color cygwin dumb; do
   origin=$(resolve_source "$relative")
   install -D -m 644 "$origin" "$stage/$relative"
 done
-mkdir -p "$stage/opt/ripgrep/share"
-for metadata in COPYING LICENSE-MIT UNLICENSE Cargo.lock version.txt; do
-  install -m 644 "$source_root/opt/ripgrep/share/$metadata" "$stage/opt/ripgrep/share/$metadata"
+for project in ripgrep fd; do
+  mkdir -p "$stage/opt/$project/share"
+  if [[ $project == ripgrep ]]; then
+    metadata_files=(COPYING LICENSE-MIT UNLICENSE Cargo.lock version.txt)
+  else
+    metadata_files=(LICENSE-MIT LICENSE-APACHE Cargo.lock version.txt)
+  fi
+  for metadata in "${metadata_files[@]}"; do
+    install -m 644 "$source_root/opt/$project/share/$metadata" "$stage/opt/$project/share/$metadata"
+  done
 done
 printf '@echo off\r\n"%%~dp0bin\\bash.exe" --login -i\r\n' > "$stage/Cygwin.bat"
 
